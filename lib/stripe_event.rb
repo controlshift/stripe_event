@@ -57,6 +57,18 @@ module StripeEvent
 
   self.adapter = NotificationAdapter
   self.backend = ActiveSupport::Notifications
-  self.event_retriever = lambda { |params| Stripe::Event.retrieve(params[:id]) }
+  self.event_retriever = lambda do |params| 
+    # event verification for deauthorization is the opposite, need to check to make sure we really are unauthorized. 
+    if params[:type] == 'account.application.deauthorized'
+      begin
+        Stripe::Event.retrieve(params[:id])
+        raise Stripe::StripeError 'account.application.deauthorized Should have been unauthorized.'
+      rescue Stripe::StripeError => e
+        return params
+      end
+    else
+      Stripe::Event.retrieve(params[:id])
+    end 
+  end
   self.namespace = Namespace.new("stripe_event", ".")
 end
